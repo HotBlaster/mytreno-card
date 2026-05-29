@@ -22,6 +22,7 @@ if (!window.MyTrenoTranslations) window.MyTrenoTranslations = {
     next: "Prossima",
     route: "Percorso",
     loading: "⏳ Caricamento dati...",
+    loading_hint: "I dati in tempo reale del treno selezionato vengono scaricati direttamente dalla rete ferroviaria. Ancora qualche secondo…",
     not_available: "⚠️ Dati non disponibili",
     add_card: "Aggiungi card",
     train: "Treno",
@@ -35,6 +36,7 @@ if (!window.MyTrenoTranslations) window.MyTrenoTranslations = {
     theme_light: "Light (Chiaro)",
     theme_neon: "Neon (Cyberpunk)",
     theme_retro: "Retro (Classico)",
+    theme_trenitalia: "Trenitalia",
     train_name: "Nome Treno",
     select_train: "Seleziona il treno",
     theme: "Tema",
@@ -54,6 +56,7 @@ if (!window.MyTrenoTranslations) window.MyTrenoTranslations = {
     next: "Next",
     route: "Route",
     loading: "⏳ Loading data...",
+    loading_hint: "Real-time data for the selected train is being fetched from the rail network. Just a few more seconds…",
     not_available: "⚠️ Data not available",
     add_card: "Add card",
     train: "Train",
@@ -67,6 +70,7 @@ if (!window.MyTrenoTranslations) window.MyTrenoTranslations = {
     theme_light: "Light",
     theme_neon: "Neon (Cyberpunk)",
     theme_retro: "Retro (Classic)",
+    theme_trenitalia: "Trenitalia",
     train_name: "Train Name",
     select_train: "Select train",
     theme: "Theme",
@@ -155,8 +159,8 @@ class MyTrenoCardEditor extends LitElement {
                   { value: "light", label: window.myTrenoT('theme_light', this._getLang()) },
                   { value: "neon", label: window.myTrenoT('theme_neon', this._getLang()) },
                   { value: "retro", label: window.myTrenoT('theme_retro', this._getLang()) },
-                ]
-              }
+                  { value: "trenitalia", label: window.myTrenoT('theme_trenitalia', this._getLang()) },
+                ]              }
             }}
             .value=${this._config.theme || "default"}
             @value-changed=${e => this._updateConfig("theme", e.detail.value)}
@@ -244,85 +248,24 @@ class MyTrenoCard extends HTMLElement {
     const existing = this.querySelector(".treno-popup-overlay");
     if (existing) existing.remove();
 
-    // Mostra popup di caricamento
-    const loadingOverlay = document.createElement("div");
-    loadingOverlay.className = "treno-popup-overlay";
-
-    const loadingPopup = document.createElement("div");
-    loadingPopup.className = `treno-popup theme-${this._theme}`;
-    loadingPopup.innerHTML = `<div class="treno-popup-content">${window.myTrenoT('loading', this._getLang())}</div>`;
-    loadingOverlay.appendChild(loadingPopup);
-    this.appendChild(loadingOverlay);
-
-    // Call service solo dopo aver mostrato il popup
-    await this._hass.callService("mytreno", "set_train", { train_number: trainNum });
-
-    // Aspetta che il sensore venga aggiornato
-    const waitForSensorUpdate = async () => {
-      const maxTries = 20;
-      for (let i = 0; i < maxTries; i++) {
-        const attrs = this._hass.states["sensor.mytreno_selected_train"]?.attributes ?? {};
-        if (attrs.train_number === trainNum && Array.isArray(attrs.fermate) && attrs.fermate.length > 0) {
-          return attrs;
-        }
-        await new Promise(r => setTimeout(r, 500));
-      }
-      return null;
-    };
-
-    const attrs = await waitForSensorUpdate();
-
-    // Chiudi il popup di caricamento
-    loadingOverlay.remove();
-
-    if (!attrs) {
-      const errorOverlay = document.createElement("div");
-      errorOverlay.className = "treno-popup-overlay";
-
-      const errorPopup = document.createElement("div");
-      errorPopup.className = `treno-popup theme-${this._theme}`;
-      errorPopup.innerHTML = `<div class="treno-popup-content" style="color:red;">${window.myTrenoT('not_available', this._getLang())}</div>`;
-      errorOverlay.appendChild(errorPopup);
-      this.appendChild(errorOverlay);
-      errorOverlay.addEventListener("click", e => { if (e.target === errorOverlay) errorOverlay.remove(); });
-      return;
-    }
-
-    // Crea popup con i dati del treno
+    // Crea subito il popup con lo stato di caricamento (unico popup)
     this._popupOpen = true;
     const overlay = document.createElement("div");
     overlay.className = "treno-popup-overlay";
-
     const popup = document.createElement("div");
     popup.className = `treno-popup theme-${this._theme}`;
-
-    const fermateHTML = `
-      <div class="treno-timeline-scroll">
-        <div class="treno-timeline">
-          ${attrs.fermate.map((f, i) => `
-            <div class="treno-stop ${f.arrivato ? 'done' : ''} ${attrs.prossima_stazione === f.stazione ? 'next' : ''}">
-              <div class="label">${f.stazione}</div>
-              <div class="dot"></div>
-              <div class="info">
-                <span>${f.programmata?.substring(11, 16) ?? "--"}</span>
-                ${f.binario ? `<span>bin ${f.binario}</span>` : ""}
-              </div>
-            </div>
-          `).join("")}
-        </div>
-      </div>
-    `;
-
     popup.innerHTML = `
       <button class="close-btn">&times;</button>
-      <div class="treno-popup-content">
-        <h3>${window.myTrenoT('train', this._getLang())} ${attrs.train_number}</h3>
-        <p><strong>${window.myTrenoT('delay', this._getLang())}:</strong> ${attrs.ritardo ?? "-"}</p>
-        <p><strong>${window.myTrenoT('next', this._getLang())}:</strong> ${attrs.prossima_stazione ?? "-"}</p>
-        <h4>${window.myTrenoT('route', this._getLang())}</h4>
-        <div class="fermate">${fermateHTML}</div>
+      <div id="treno-detail-body" class="treno-popup-content">
+        <div style="text-align:center;padding:2rem 0 0.5rem;opacity:.7;">${window.myTrenoT('loading', this._getLang())}</div>
+        <div id="treno-loading-hint" class="treno-loading-hint"></div>
       </div>
-      <style>
+    `;
+    overlay.appendChild(popup);
+    this.appendChild(overlay);
+    // Stili applicati subito: anche la schermata di caricamento eredita il tema
+    const styleTag = document.createElement("style");
+    styleTag.textContent = `
         .fermate {
           margin: 0;
           padding: 0;
@@ -455,10 +398,6 @@ class MyTrenoCard extends HTMLElement {
           opacity: 0.8;
         }
 
-        .treno-popup-content p {
-          margin: 0.75rem 0;
-          line-height: 1.4;
-        }
         .treno-popup.theme-light {
           --mytreno-text-color: #000;
           --mytreno-info-color: #000;
@@ -525,20 +464,136 @@ class MyTrenoCard extends HTMLElement {
         .treno-popup.theme-retro .treno-popup-content strong {
           color: #ffcc00;
         }
-      </style>
+
+        .treno-loading-hint {
+          text-align: center;
+          font-size: 0.8rem;
+          opacity: 0;
+          padding: 0 1rem 1.5rem;
+          line-height: 1.5;
+          transition: opacity 0.6s ease;
+          color: var(--mytreno-text-color, #aaa);
+        }
+        .treno-loading-hint--visible {
+          opacity: 0.55;
+        }
+
+        .treno-popup.theme-trenitalia {
+          --mytreno-text-color: #1a1a1a;
+          --mytreno-info-color: #007A33;
+          background: #ffffff;
+          color: #1a1a1a;
+          font-family: 'Inter', sans-serif;
+          border-top: 4px solid #E30613;
+          border-bottom: 3px solid #007A33;
+        }
+        .treno-popup.theme-trenitalia h3 {
+          color: #E30613;
+          font-weight: 700;
+        }
+        .treno-popup.theme-trenitalia h4 {
+          color: #007A33;
+        }
+        .treno-popup.theme-trenitalia .close-btn {
+          color: #1a1a1a;
+        }
+        .treno-popup.theme-trenitalia .treno-popup-content strong {
+          color: #007A33;
+        }
+        .treno-popup.theme-trenitalia .treno-timeline::before {
+          background: #E30613;
+        }
+        .treno-popup.theme-trenitalia .treno-stop .label {
+          color: #1a1a1a;
+        }
+        .treno-popup.theme-trenitalia .treno-stop .info {
+          color: #007A33;
+        }
+    `;
+    popup.appendChild(styleTag);
+    // Mostra il suggerimento di caricamento dopo 2 secondi
+    const hintEl = popup.querySelector("#treno-loading-hint");
+    if (hintEl) {
+      setTimeout(() => {
+        if (hintEl.isConnected) {
+          hintEl.textContent = window.myTrenoT('loading_hint', this._getLang());
+          hintEl.classList.add('treno-loading-hint--visible');
+        }
+      }, 2000);
+    }
+    overlay.addEventListener("click", e => {
+      if (e.target === overlay) { overlay.remove(); this._popupOpen = false; }
+    });
+    popup.querySelector(".close-btn").addEventListener("click", () => { overlay.remove(); this._popupOpen = false; });
+
+    // Controlla se il sensore ha già i dati freschi per questo treno
+    const cachedAttrs = this._hass.states["sensor.mytreno_selected_train"]?.attributes ?? {};
+    console.log(`[MyTreno] click treno: treno.treno=${treno.treno}, trainNum=${trainNum} (${typeof trainNum})`);
+    console.log(`[MyTreno] sensore attuale: train_number=${cachedAttrs.train_number} (${typeof cachedAttrs.train_number}), fermate=${Array.isArray(cachedAttrs.fermate) ? cachedAttrs.fermate.length : 'N/A'}`);
+    const hasFreshData = String(cachedAttrs.train_number) === String(trainNum) &&
+      Array.isArray(cachedAttrs.fermate) && cachedAttrs.fermate.length > 0;
+    console.log(`[MyTreno] hasFreshData=${hasFreshData}`);
+
+    let attrs;
+    if (hasFreshData) {
+      console.log(`[MyTreno] ✅ cache hit, dati già disponibili`);
+      attrs = cachedAttrs;
+    } else {
+      const t0 = Date.now();
+      console.log(`[MyTreno] chiamo set_train con train_number=${trainNum} alle ${new Date().toISOString()}`);
+      await this._hass.callService("mytreno", "set_train", { train_number: trainNum });
+      console.log(`[MyTreno] callService completato in ${Date.now()-t0}ms`);
+      const afterService = this._hass.states["sensor.mytreno_selected_train"]?.attributes ?? {};
+      console.log(`[MyTreno] sensore SUBITO dopo callService: train_number=${afterService.train_number}, fermate=${Array.isArray(afterService.fermate) ? afterService.fermate.length : 'N/A'}`);
+      attrs = await (async () => {
+        const startTime = Date.now();
+        for (let i = 0; i < 40; i++) {
+          const a = this._hass.states["sensor.mytreno_selected_train"]?.attributes ?? {};
+          const elapsed = Date.now() - startTime;
+          console.log(`[MyTreno] poll #${i} (+${elapsed}ms): train_number=${a.train_number} (${typeof a.train_number}), atteso=${trainNum}, fermate=${Array.isArray(a.fermate) ? a.fermate.length : 'N/A'}`);
+          if (String(a.train_number) === String(trainNum) && Array.isArray(a.fermate) && a.fermate.length > 0) {
+            console.log(`[MyTreno] ✅ dati trovati al poll #${i} dopo ${elapsed}ms`);
+            return a;
+          }
+          await new Promise(r => setTimeout(r, 300));
+        }
+        console.warn(`[MyTreno] ❌ timeout dopo ${Date.now() - startTime}ms`);
+        return null;
+      })();
+    }
+
+    const body = popup.querySelector("#treno-detail-body");
+    if (!attrs) {
+      body.innerHTML = `<p style="color:red;text-align:center;">${window.myTrenoT('not_available', this._getLang())}</p>`;
+      return;
+    }
+
+    const fermateHTML = `
+      <div class="treno-timeline-scroll">
+        <div class="treno-timeline">
+          ${attrs.fermate.map((f, i) => `
+            <div class="treno-stop ${f.arrivato ? 'done' : ''} ${attrs.prossima_stazione === f.stazione ? 'next' : ''}">
+              <div class="label">${f.stazione}</div>
+              <div class="dot"></div>
+              <div class="info">
+                <span>${f.programmata?.substring(11, 16) ?? "--"}</span>
+                ${f.binario ? `<span>bin ${f.binario}</span>` : ""}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
     `;
 
-    overlay.appendChild(popup);
-    this.appendChild(overlay);
-    overlay.addEventListener("click", e => {
-      if (e.target === overlay) overlay.remove();
-    this._popupOpen = false;
-    });
-
-    popup.querySelector(".close-btn").addEventListener("click", () => overlay.remove());
+    body.innerHTML = `
+        <h3>${window.myTrenoT('train', this._getLang())} ${attrs.train_number}</h3>
+        <p><strong>${window.myTrenoT('delay', this._getLang())}:</strong> ${attrs.ritardo ?? "-"}</p>
+        <p><strong>${window.myTrenoT('next', this._getLang())}:</strong> ${attrs.prossima_stazione ?? "-"}</p>
+        <h4>${window.myTrenoT('route', this._getLang())}</h4>
+        <div class="fermate">${fermateHTML}</div>
+    `;
     const scrollContainer = popup.querySelector(".treno-timeline-scroll");
     const nextStop = popup.querySelector(".treno-stop.next");
-
     if (scrollContainer && nextStop) {
       const offsetLeft = nextStop.offsetLeft - scrollContainer.offsetWidth / 2 + nextStop.offsetWidth / 2;
       scrollContainer.scrollTo({ left: offsetLeft, behavior: "smooth" });
@@ -546,15 +601,22 @@ class MyTrenoCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const prev = this._hass;
+    this._hass = hass;
+
+    if (this._popupOpen) {
+      const sel = hass.states["sensor.mytreno_selected_train"]?.attributes;
+      if (sel) console.log(`[MyTreno] set hass (popup aperto): train_number=${sel.train_number}, fermate=${Array.isArray(sel.fermate) ? sel.fermate.length : 'N/A'}`);
+    }
+
     if (this._preventRender || this._popupOpen) return;
 
     const changed =
-      JSON.stringify(this._hass?.states?.[this._sensor]) !== JSON.stringify(hass?.states?.[this._sensor]) ||
-      JSON.stringify(this._hass?.states?.[this._extra]) !== JSON.stringify(hass?.states?.[this._extra]);
+      JSON.stringify(prev?.states?.[this._sensor]) !== JSON.stringify(hass?.states?.[this._sensor]) ||
+      JSON.stringify(prev?.states?.[this._extra]) !== JSON.stringify(hass?.states?.[this._extra]);
 
     if (!changed) return;
 
-    this._hass = hass;
     this._render();
   }
 
@@ -588,7 +650,12 @@ class MyTrenoCard extends HTMLElement {
 
     const partenze = entity.attributes.partenze || [];
     const arrivi = entity.attributes.arrivi || [];
-    const stationName = entity.attributes.friendly_name || "Station";
+    const stationName =
+      entity.attributes.station_name ||
+      this._hass.entities?.[this._sensor]?.name ||
+      this._hass.entities?.[this._sensor]?.original_name ||
+      this._sensor.replace(/^sensor\.mytreno_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) ||
+      "Station";
 
     this.innerHTML = `
       <div class="theme-${this._config.theme || 'default'}">
@@ -737,6 +804,48 @@ class MyTrenoCard extends HTMLElement {
           .theme-neon .status-chip.late {
             background: #330000;
             color: #ff4444;
+          }
+
+          .theme-trenitalia ha-card {
+            background: #f5f5f5;
+            color: #1a1a1a;
+            border-top: 4px solid #E30613;
+            border-bottom: 3px solid #007A33;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+          }
+          .theme-trenitalia .treno-title {
+            color: #1a1a1a;
+          }
+          .theme-trenitalia .treno-title::before {
+            background: #E30613;
+          }
+          .theme-trenitalia th {
+            color: #007A33;
+            border-bottom: 2px solid #E30613;
+          }
+          .theme-trenitalia td {
+            color: #1a1a1a;
+            border-bottom: 1px solid #ddd;
+          }
+          .theme-trenitalia .treno-nav-button {
+            background: rgba(227,6,19,0.08);
+            color: #E30613;
+          }
+          .theme-trenitalia .status-chip.on-time {
+            background: rgba(0,122,51,0.1);
+            color: #007A33;
+          }
+          .theme-trenitalia .status-chip.delayed {
+            background: rgba(255,152,0,0.15);
+            color: #E07000;
+          }
+          .theme-trenitalia .status-chip.late {
+            background: rgba(227,6,19,0.1);
+            color: #E30613;
+          }
+          .theme-trenitalia .treno-scrollable-text span,
+          .theme-trenitalia .treno-ritardo-box span {
+            color: #1a1a1a;
           }
 
           ha-card {
@@ -1272,7 +1381,8 @@ class MyTrenoCardTrackingEditor extends LitElement {
                   { value: "default", label: window.myTrenoT('theme_default', this._getLang()) },
                   { value: "light", label: window.myTrenoT('theme_light', this._getLang()) },
                   { value: "neon", label: window.myTrenoT('theme_neon', this._getLang()) },
-                  { value: "retro", label: window.myTrenoT('theme_retro', this._getLang()) }
+                  { value: "retro", label: window.myTrenoT('theme_retro', this._getLang()) },
+                  { value: "trenitalia", label: window.myTrenoT('theme_trenitalia', this._getLang()) }
                 ]
               }
             }}
