@@ -35,8 +35,8 @@ if (!window.MyTrenoTranslations) window.MyTrenoTranslations = {
     theme_default: "Default",
     theme_light: "Light (Chiaro)",
     theme_neon: "Neon (Cyberpunk)",
-    theme_retro: "Retro (Classico)",
-    theme_trenitalia: "Trenitalia",
+    theme_retro: "Display",
+    theme_trenitalia: "My Treno",
     train_name: "Nome Treno",
     select_train: "Seleziona il treno",
     theme: "Tema",
@@ -68,9 +68,9 @@ if (!window.MyTrenoTranslations) window.MyTrenoTranslations = {
     select_theme: "Select theme",
     theme_default: "Default",
     theme_light: "Light",
-    theme_neon: "Neon (Cyberpunk)",
-    theme_retro: "Retro (Classic)",
-    theme_trenitalia: "Trenitalia",
+    theme_neon: "Neon",
+    theme_retro: "Display",
+    theme_trenitalia: "My Treno",
     train_name: "Train Name",
     select_train: "Select train",
     theme: "Theme",
@@ -479,35 +479,41 @@ class MyTrenoCard extends HTMLElement {
         }
 
         .treno-popup.theme-trenitalia {
-          --mytreno-text-color: #1a1a1a;
-          --mytreno-info-color: #007A33;
-          background: #ffffff;
-          color: #1a1a1a;
-          font-family: 'Inter', sans-serif;
+          --mytreno-text-color: #cccccc;
+          --mytreno-info-color: #00EE44;
+          background: #060d07;
+          color: #cccccc;
+          font-family: 'VT323', monospace;
           border-top: 4px solid #E30613;
-          border-bottom: 3px solid #007A33;
+          border-bottom: 4px solid #007A33;
+          box-shadow: 0 0 0 2px #1c1c1c, 0 0 30px rgba(0,0,0,0.8);
         }
         .treno-popup.theme-trenitalia h3 {
-          color: #E30613;
-          font-weight: 700;
+          color: #FF3300;
+          font-family: 'VT323', monospace;
+          font-size: 1.7rem;
+          font-weight: normal;
         }
         .treno-popup.theme-trenitalia h4 {
-          color: #007A33;
+          color: #00EE44;
+          font-family: 'VT323', monospace;
+          font-size: 1.4rem;
+          font-weight: normal;
         }
         .treno-popup.theme-trenitalia .close-btn {
-          color: #1a1a1a;
+          color: #cccccc;
         }
         .treno-popup.theme-trenitalia .treno-popup-content strong {
-          color: #007A33;
+          color: #00EE44;
         }
         .treno-popup.theme-trenitalia .treno-timeline::before {
           background: #E30613;
         }
         .treno-popup.theme-trenitalia .treno-stop .label {
-          color: #1a1a1a;
+          color: #cccccc;
         }
         .treno-popup.theme-trenitalia .treno-stop .info {
-          color: #007A33;
+          color: #00EE44;
         }
     `;
     popup.appendChild(styleTag);
@@ -662,6 +668,7 @@ class MyTrenoCard extends HTMLElement {
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
           @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
           .theme-default ha-card {
             background: linear-gradient(140deg, #111728 0%, #1a1d26 100%);
             color: #ffffff;
@@ -806,46 +813,107 @@ class MyTrenoCard extends HTMLElement {
             color: #ff4444;
           }
 
+          .treno-stripe-top, .treno-stripe-bottom { display: none; }
+
+          /* ── TRENITALIA THEME: LED departure board ── */
           .theme-trenitalia ha-card {
-            background: #f5f5f5;
-            color: #1a1a1a;
-            border-top: 4px solid #E30613;
-            border-bottom: 3px solid #007A33;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            background: #222d2f;
+            color: #cccccc;
+            padding: 0;
+            overflow: hidden;
+            box-shadow: 0 0 0 3px #1c1c1c, 0 8px 32px rgba(0,0,0,0.85);
+            border-radius: 6px;
           }
-          .theme-trenitalia .treno-title {
-            color: #1a1a1a;
+          .theme-trenitalia .treno-stripe-top {
+            display: block;
+            height: 8px;
+            background: linear-gradient(to bottom, #007A33 100%);
+            flex-shrink: 0;
           }
-          .theme-trenitalia .treno-title::before {
-            background: #E30613;
+          .theme-trenitalia .treno-stripe-bottom {
+            display: block;
+            margin: 0;
+            background: linear-gradient(to bottom, #E30613 100%);
+            height: 8px;
+            flex-shrink: 0;
           }
-          .theme-trenitalia th {
-            color: #007A33;
-            border-bottom: 2px solid #E30613;
-          }
-          .theme-trenitalia td {
-            color: #1a1a1a;
-            border-bottom: 1px solid #ddd;
+          .theme-trenitalia .treno-slider-wrapper {
+            padding: 0.4rem 1.2rem 0.8rem;
           }
           .theme-trenitalia .treno-nav-button {
-            background: rgba(227,6,19,0.08);
+            top: 18px;
+            background: rgba(227,6,19,0.2);
             color: #E30613;
+          }
+          .theme-trenitalia .treno-title {
+            font-family: 'VT323', monospace;
+            font-size: 2rem;
+            color: #FF3300;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: normal;
+            margin-top: 0.3rem;
+            margin-bottom: 0.4rem;
+            padding-right: 3rem;
+            line-height: 1.1;
+          }
+          .theme-trenitalia .treno-title::before {
+            display: none;
+          }
+          .theme-trenitalia th {
+            color: #00EE44;
+            border-bottom: 1px solid #0f1f0f;
+            font-family: 'VT323', monospace;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: normal;
+            padding-top: 0.3rem;
+            padding-bottom: 0.3rem;
+          }
+          .theme-trenitalia td {
+            color: #cccccc;
+            border-bottom: 1px solid #0a140a;
+            font-family: 'VT323', monospace;
+            font-size: 1.2rem;
+          }
+          .theme-trenitalia .treno-platform-badge {
+            color: #00CC44;
+            background: none;
+            font-family: 'VT323', monospace;
+            font-size: 1.2rem;
+            padding: 0;
+          }
+          .theme-trenitalia .status-chip {
+            font-family: 'VT323', monospace;
+            font-size: 1.15rem;
+            border-radius: 3px;
+            animation: none;
           }
           .theme-trenitalia .status-chip.on-time {
-            background: rgba(0,122,51,0.1);
-            color: #007A33;
+            background: #001a08;
+            color: #00EE44;
+            border: 1px solid #007A33;
           }
           .theme-trenitalia .status-chip.delayed {
-            background: rgba(255,152,0,0.15);
-            color: #E07000;
+            background: #2a1200;
+            color: #FF7700;
+            border: 1px solid #994400;
           }
           .theme-trenitalia .status-chip.late {
-            background: rgba(227,6,19,0.1);
-            color: #E30613;
+            background: #2a0000;
+            color: #FF2200;
+            border: 1px solid #991100;
           }
           .theme-trenitalia .treno-scrollable-text span,
           .theme-trenitalia .treno-ritardo-box span {
-            color: #1a1a1a;
+            color: #cccccc;
+          }
+          .theme-trenitalia .treno-table-scroll {
+            scrollbar-color: rgba(0,238,68,0.3) transparent;
+          }
+          .theme-trenitalia .treno-table-scroll::-webkit-scrollbar-thumb {
+            background: rgba(0,238,68,0.3);
           }
 
           ha-card {
@@ -966,6 +1034,27 @@ class MyTrenoCard extends HTMLElement {
             background: rgba(255, 255, 255, 0.2);
           }
 
+          .treno-table-scroll {
+            overflow-y: auto;
+            max-height: calc(10 * 3.2rem);
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.25) transparent;
+          }
+          .treno-table-scroll::-webkit-scrollbar {
+            width: 4px;
+          }
+          .treno-table-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.25);
+            border-radius: 2px;
+          }
+          .theme-trenitalia .treno-table-scroll,
+          .theme-light .treno-table-scroll {
+            scrollbar-color: rgba(0,0,0,0.2) transparent;
+          }
+          .theme-trenitalia .treno-table-scroll::-webkit-scrollbar-thumb,
+          .theme-light .treno-table-scroll::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.15);
+          }
           .treno-slider-wrapper {
             width: 100%;
             overflow: hidden;
@@ -978,6 +1067,8 @@ class MyTrenoCard extends HTMLElement {
             gap: 24px;
             width: 100%;
             box-sizing: border-box;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
           }
           .treno-slider::-webkit-scrollbar {
             display: none;
@@ -1158,21 +1249,27 @@ class MyTrenoCard extends HTMLElement {
           }
         </style>
         <ha-card>
+          <div class="treno-stripe-top"></div>
           <div class="treno-nav-button" id="nextBtn">→</div>
           <div class="treno-slider-wrapper">
             <div class="treno-slider">
               <div class="treno-page">
                 <div class="treno-title">${window.myTrenoT('departures', this._getLang())} ${stationName}</div>
-                ${this._renderTable(partenze, "destinazione", "destination", true)}
-                ${this._renderTable(partenze, "destinazione", "destination", false)}
+                <div class="treno-table-scroll">
+                  ${this._renderTable(partenze, "destinazione", "destination", true)}
+                  ${this._renderTable(partenze, "destinazione", "destination", false)}
+                </div>
               </div>
               <div class="treno-page">
                 <div class="treno-title">${window.myTrenoT('arrivals', this._getLang())} ${stationName}</div>
-                ${this._renderTable(arrivi, "provenienza", "provenance", true)}
-                ${this._renderTable(arrivi, "provenienza", "provenance", false)}
+                <div class="treno-table-scroll">
+                  ${this._renderTable(arrivi, "provenienza", "provenance", true)}
+                  ${this._renderTable(arrivi, "provenienza", "provenance", false)}
+                </div>
               </div>
             </div>
           </div>
+          <div class="treno-stripe-bottom"></div>
         </ha-card>
       </div>
     `;
