@@ -1,6 +1,7 @@
 {
   "name": "MyTreno Card",
   "filename": "my-treno-card.js",
+  "category": "plugin",
   "content_in_root": true,
   "render_readme": true,
   "homeassistant": "2024.8"
