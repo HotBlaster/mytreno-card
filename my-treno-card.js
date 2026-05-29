@@ -898,7 +898,7 @@ class MyTrenoCard extends HTMLElement {
           .theme-trenitalia .status-chip.delayed {
             background: #2a1200;
             color: #FF7700;
-            border: 1px solid #994400;
+            border: 2px solid #994400;
           }
           .theme-trenitalia .status-chip.late {
             background: #2a0000;
@@ -1206,7 +1206,7 @@ class MyTrenoCard extends HTMLElement {
             display: none;
           }
           .treno-ritardo-box {
-            max-width: 90px;
+            max-width: 100px;
             overflow: hidden;
             white-space: nowrap;
             position: relative;
@@ -1216,10 +1216,6 @@ class MyTrenoCard extends HTMLElement {
           .treno-ritardo-box span {
             display: block;
             will-change: transform;
-          }
-
-          .treno-ritardo-box.treno-scroll span {
-            animation: scroll-delay 3s linear infinite alternate;
           }
 
           @keyframes scroll-delay {
