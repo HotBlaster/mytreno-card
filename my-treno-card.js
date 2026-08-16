@@ -41,7 +41,8 @@ if (!window.MyTrenoTranslations) window.MyTrenoTranslations = {
     select_train: "Seleziona il treno",
     theme: "Tema",
     show_route: "Percorso",
-    missing_sensor: "Config non valida: manca il sensore"
+    missing_sensor: "Config non valida: manca il sensore",
+    has_stop_filter: "Filtra per fermata"
   },
   en: {
     departures: "Departures from",
@@ -75,7 +76,8 @@ if (!window.MyTrenoTranslations) window.MyTrenoTranslations = {
     select_train: "Select train",
     theme: "Theme",
     show_route: "Route",
-    missing_sensor: "Invalid config: missing sensor"
+    missing_sensor: "Invalid config: missing sensor",
+    has_stop_filter: "Filter by stop"
   }
 };
 window.myTrenoT = function(key, lang, vars = {}) {
@@ -135,6 +137,7 @@ class MyTrenoCardEditor extends LitElement {
     const mytrenoEntities = Object.keys(this.hass.states)
       .filter(e => e.startsWith("sensor.mytreno"));
     return html`
+      <div style="background:#e63946;color:#fff;padding:4px 8px;font-size:0.75rem;border-radius:4px;margin-bottom:8px;">⚡ Custom My Treno Card</div>
       <div class="section-title">${window.myTrenoT('select_station', this._getLang())}</div>
       <ha-selector
         .hass=${this.hass}
@@ -147,6 +150,13 @@ class MyTrenoCardEditor extends LitElement {
         .value=${this._config.sensor || ""}
         @value-changed=${e => this._updateConfig("sensor", e.detail.value)}>
       </ha-selector>
+      <div class="editor-block">
+        <label style="font-size: 0.85rem; opacity: 0.7;">${window.myTrenoT('has_stop_filter', this._getLang())}</label>
+        <ha-textfield
+          .value=${this._config.hasStop || ""}
+          @input=${e => this._updateConfig("hasStop", e.target.value || undefined)}
+        ></ha-textfield>
+      </div>
       <div class="editor-block">
         <ha-formfield label="${window.myTrenoT('select_theme', this._getLang())}">
           <ha-selector
@@ -198,6 +208,9 @@ class MyTrenoCard extends HTMLElement {
     this._popupOpen = false;
     this._resizeHandler = this._updateScrollingText.bind(this);
     this._visibilityHandler = this._updateScrollingText.bind(this);
+    this._routeCache = {};
+    this._fetchQueue = [];
+    this._fetchingRoute = false;
   }
 
   connectedCallback() {
@@ -643,19 +656,135 @@ class MyTrenoCard extends HTMLElement {
       config.extra_sensor = "sensor.mytreno_selected_train";
     }
 
+    // hasStop routes are needle-independent, so keep the cache across filter changes
+    const newHasStop = config.hasStop || null;
+    if (newHasStop !== this._hasStop) {
+      this._fetchQueue = [];
+    }
+
     this._config = { ...config };
     this._sensor = config.sensor;
     this._extra  = config.extra_sensor;
     this._theme  = config.theme || "default";
+    this._hasStop = newHasStop;
+
+    // Seed the in-memory cache from localStorage so routes fetched in a
+    // previous session (per train, per day) are reused without re-fetching.
+    if (this._hasStop && Object.keys(this._routeCache).length === 0) {
+      this._routeCache = this._loadPersistedRoutes();
+    }
   }
+  _matchesHasStop(train, fieldValue) {
+    if (!this._hasStop) return true;
+    const needle = this._hasStop.toLowerCase();
+    // 1. Final destination/origin matches → show immediately
+    if ((fieldValue || "").toLowerCase().includes(needle)) return true;
+    const trainNum = String(train.treno || "").match(/\d+/)?.[0];
+    if (!trainNum) return false;
+    const cached = this._routeCache[trainNum];
+    // 2. Not yet fetched → hide until confirmed, queue for fetch
+    if (cached === undefined) {
+      if (!this._fetchQueue.includes(trainNum)) {
+        this._fetchQueue.push(trainNum);
+      }
+      return false;
+    }
+    // 3. Fetch failed/null → hide
+    if (!cached) return false;
+    // 4. Match only stops still ahead (schedule-based so the cache stays valid all day)
+    return cached.some(f => this._isFutureStop(f) && (f.stazione || "").toLowerCase().includes(needle));
+  }
+
+  _isFutureStop(f) {
+    if (f && f.programmata) {
+      const t = new Date(f.programmata).getTime();
+      if (!Number.isNaN(t)) return t > Date.now();
+    }
+    return !(f && f.arrivato);
+  }
+
+  _routeCacheKey() {
+    return `mytreno_route_cache_${new Date().toISOString().slice(0, 10)}`;
+  }
+
+  _loadPersistedRoutes() {
+    try {
+      const raw = localStorage.getItem(this._routeCacheKey());
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  _persistRoute(trainNum, fermate) {
+    try {
+      const key = this._routeCacheKey();
+      const store = this._loadPersistedRoutes();
+      store[trainNum] = fermate;
+      localStorage.setItem(key, JSON.stringify(store));
+      // Drop caches from previous days to avoid unbounded growth
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("mytreno_route_cache_") && k !== key) {
+          localStorage.removeItem(k);
+        }
+      }
+    } catch (e) {
+      /* localStorage unavailable or full: keep working with the in-memory cache */
+    }
+  }
+
+  async _processFetchQueue() {
+    if (this._fetchingRoute) return;
+    this._fetchingRoute = true;
+    while (this._fetchQueue.length > 0) {
+      if (this._popupOpen) {
+        await new Promise(r => setTimeout(r, 500));
+        continue;
+      }
+      const trainNum = this._fetchQueue.shift();
+      if (this._routeCache[trainNum] !== undefined) continue;
+      // Block set-hass re-renders while using the shared sensor
+      this._preventRender = true;
+      try {
+        await this._hass.callService("mytreno", "set_train", { train_number: trainNum });
+        const fermate = await (async () => {
+          for (let i = 0; i < 40; i++) {
+            const a = this._hass.states["sensor.mytreno_selected_train"]?.attributes ?? {};
+            if (String(a.train_number) === String(trainNum) && Array.isArray(a.fermate) && a.fermate.length > 0) {
+              return a.fermate;
+            }
+            await new Promise(r => setTimeout(r, 150));
+          }
+          return null;
+        })();
+        if (!fermate) {
+          console.warn(`[hasStop] ⏱ timeout fetching route for train ${trainNum}`);
+          this._routeCache[trainNum] = null;
+        } else {
+          // Keep only what the filter needs and persist it for reuse across reloads
+          const minimal = fermate.map(f => ({ stazione: f.stazione, programmata: f.programmata }));
+          this._routeCache[trainNum] = minimal;
+          this._persistRoute(trainNum, minimal);
+        }
+      } catch (e) {
+        console.warn(`[hasStop] ❌ callService failed for train ${trainNum}:`, e);
+        this._routeCache[trainNum] = null;
+      }
+      this._preventRender = false;
+      if (!this._popupOpen) this._render();
+    }
+    this._fetchingRoute = false;
+  }
+
   _render() {
     if (!this._hass || !this._sensor) return;
 
     const entity = this._hass.states[this._sensor];
     if (!entity || !entity.attributes) return;
 
-    const partenze = entity.attributes.partenze || [];
-    const arrivi = entity.attributes.arrivi || [];
+    const partenze = (entity.attributes.partenze || []).filter(t => this._matchesHasStop(t, t.destinazione));
+    const arrivi = (entity.attributes.arrivi || []).filter(t => this._matchesHasStop(t, t.provenienza));
     const stationName =
       entity.attributes.station_name ||
       this._hass.entities?.[this._sensor]?.name ||
@@ -1287,6 +1416,11 @@ class MyTrenoCard extends HTMLElement {
       this.page = (this.page + 1) % 2;
       this._updateSlide();
     });
+
+    // Kick off background route fetching for hasStop filter
+    if (this._hasStop && this._fetchQueue.length > 0) {
+      this._processFetchQueue();
+    }
   }
 
   _updateSlide() {
