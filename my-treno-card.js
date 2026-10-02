@@ -42,7 +42,8 @@ if (!window.MyTrenoTranslations) window.MyTrenoTranslations = {
     theme: "Tema",
     show_route: "Percorso",
     missing_sensor: "Config non valida: manca il sensore",
-    has_stop_filter: "Filtra per fermata"
+    has_stop_filter: "Filtra per fermata",
+    favorite_trains: "Treni preferiti (id separati da virgola)"
   },
   en: {
     departures: "Departures from",
@@ -77,7 +78,8 @@ if (!window.MyTrenoTranslations) window.MyTrenoTranslations = {
     theme: "Theme",
     show_route: "Route",
     missing_sensor: "Invalid config: missing sensor",
-    has_stop_filter: "Filter by stop"
+    has_stop_filter: "Filter by stop",
+    favorite_trains: "Favorite trains (comma-separated ids)"
   }
 };
 window.myTrenoT = function(key, lang, vars = {}) {
@@ -137,7 +139,7 @@ class MyTrenoCardEditor extends LitElement {
     const mytrenoEntities = Object.keys(this.hass.states)
       .filter(e => e.startsWith("sensor.mytreno"));
     return html`
-      <div style="background:#e63946;color:#fff;padding:4px 8px;font-size:0.75rem;border-radius:4px;margin-bottom:8px;">⚡ Custom My Treno Card</div>
+      <div style="background:#e63946;color:#fff;padding:4px 8px;font-size:0.75rem;border-radius:4px;margin-bottom:8px;">⚡ Custom My Treno Card 1.0.2</div>
       <div class="section-title">${window.myTrenoT('select_station', this._getLang())}</div>
       <ha-selector
         .hass=${this.hass}
@@ -155,6 +157,13 @@ class MyTrenoCardEditor extends LitElement {
         <ha-textfield
           .value=${this._config.hasStop || ""}
           @input=${e => this._updateConfig("hasStop", e.target.value || undefined)}
+        ></ha-textfield>
+      </div>
+      <div class="editor-block">
+        <label style="font-size: 0.85rem; opacity: 0.7;">${window.myTrenoT('favorite_trains', this._getLang())}</label>
+        <ha-textfield
+          .value=${Array.isArray(this._config.favoriteTrains) ? this._config.favoriteTrains.join(", ") : (this._config.favoriteTrains || "")}
+          @input=${e => this._updateConfig("favoriteTrains", e.target.value || undefined)}
         ></ha-textfield>
       </div>
       <div class="editor-block">
@@ -667,6 +676,7 @@ class MyTrenoCard extends HTMLElement {
     this._extra  = config.extra_sensor;
     this._theme  = config.theme || "default";
     this._hasStop = newHasStop;
+    this._favoriteTrains = this._parseTrainList(config.favoriteTrains);
 
     // Seed the in-memory cache from localStorage so routes fetched in a
     // previous session (per train, per day) are reused without re-fetching.
@@ -674,8 +684,26 @@ class MyTrenoCard extends HTMLElement {
       this._routeCache = this._loadPersistedRoutes();
     }
   }
+  _parseTrainList(value) {
+    if (Array.isArray(value)) return value.map(v => String(v).match(/\d+/)?.[0]).filter(Boolean);
+    if (typeof value === "string") return value.split(",").map(v => v.match(/\d+/)?.[0]).filter(Boolean);
+    return [];
+  }
+
+  _isFavorite(train) {
+    if (!this._favoriteTrains || this._favoriteTrains.length === 0) return false;
+    const trainNum = String(train.treno || "").match(/\d+/)?.[0];
+    return trainNum ? this._favoriteTrains.includes(trainNum) : false;
+  }
+
   _matchesHasStop(train, fieldValue) {
-    if (!this._hasStop) return true;
+    // Favorite trains bypass the hasStop filter entirely
+    if (this._isFavorite(train)) return true;
+    const hasFavorites = this._favoriteTrains && this._favoriteTrains.length > 0;
+    // No filters at all → show everything
+    if (!this._hasStop && !hasFavorites) return true;
+    // Favorites configured but no hasStop filter → show only favorites
+    if (!this._hasStop) return false;
     const needle = this._hasStop.toLowerCase();
     // 1. Final destination/origin matches → show immediately
     if ((fieldValue || "").toLowerCase().includes(needle)) return true;
