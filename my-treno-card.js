@@ -139,7 +139,7 @@ class MyTrenoCardEditor extends LitElement {
     const mytrenoEntities = Object.keys(this.hass.states)
       .filter(e => e.startsWith("sensor.mytreno"));
     return html`
-      <div style="background:#e63946;color:#fff;padding:4px 8px;font-size:0.75rem;border-radius:4px;margin-bottom:8px;">⚡ Custom My Treno Card 1.0.2</div>
+      <div style="background:#e63946;color:#fff;padding:4px 8px;font-size:0.75rem;border-radius:4px;margin-bottom:8px;">⚡ Custom My Treno Card 1.0.3</div>
       <div class="section-title">${window.myTrenoT('select_station', this._getLang())}</div>
       <ha-selector
         .hass=${this.hass}
@@ -569,11 +569,17 @@ class MyTrenoCard extends HTMLElement {
     } else {
       const t0 = Date.now();
       console.log(`[MyTreno] chiamo set_train con train_number=${trainNum} alle ${new Date().toISOString()}`);
-      await this._hass.callService("mytreno", "set_train", { train_number: trainNum });
+      let serviceOk = true;
+      try {
+        await this._hass.callService("mytreno", "set_train", { train_number: trainNum });
+      } catch (e) {
+        console.warn(`[MyTreno] ❌ set_train fallito per treno ${trainNum}:`, e);
+        serviceOk = false;
+      }
       console.log(`[MyTreno] callService completato in ${Date.now()-t0}ms`);
       const afterService = this._hass.states["sensor.mytreno_selected_train"]?.attributes ?? {};
       console.log(`[MyTreno] sensore SUBITO dopo callService: train_number=${afterService.train_number}, fermate=${Array.isArray(afterService.fermate) ? afterService.fermate.length : 'N/A'}`);
-      attrs = await (async () => {
+      attrs = !serviceOk ? null : await (async () => {
         const startTime = Date.now();
         for (let i = 0; i < 40; i++) {
           const a = this._hass.states["sensor.mytreno_selected_train"]?.attributes ?? {};
@@ -775,7 +781,8 @@ class MyTrenoCard extends HTMLElement {
       // Block set-hass re-renders while using the shared sensor
       this._preventRender = true;
       try {
-        await this._hass.callService("mytreno", "set_train", { train_number: trainNum });
+        // notifyOnError=false: background lookups must not show HA error toasts
+        await this._hass.callService("mytreno", "set_train", { train_number: trainNum }, undefined, false);
         const fermate = await (async () => {
           for (let i = 0; i < 40; i++) {
             const a = this._hass.states["sensor.mytreno_selected_train"]?.attributes ?? {};
@@ -801,6 +808,8 @@ class MyTrenoCard extends HTMLElement {
       }
       this._preventRender = false;
       if (!this._popupOpen) this._render();
+      // Space out calls to avoid overloading the backend/ViaggiaTreno API
+      await new Promise(r => setTimeout(r, 750));
     }
     this._fetchingRoute = false;
   }
