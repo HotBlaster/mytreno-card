@@ -1,17 +1,18 @@
+# ⚠️ Fork non ufficiale
 
-# **DISCONTINUED** 
+Questo repository è un **fork** di [lotablet/mytreno-card](https://github.com/lotablet/mytreno-card), il cui progetto originale **non è più mantenuto** dall'autore.
 
-A causa di altri impegni non potrò più aggiornare questo componente.
+Il fork nasce per mantenere la card funzionante insieme all'integrazione [HotBlaster/mytreno](https://github.com/HotBlaster/mytreno) con le versioni recenti di Home Assistant.
 
-Grazie a tutti del supporto 🙏🏻❤️
+> **Nota:** la manutenzione è svolta **con l'aiuto dell'intelligenza artificiale**.
+> Gli aggiornamenti potrebbero essere **lenti**.
 
-
-
+Tutto il merito del progetto originale va a [@lotablet](https://github.com/lotablet).
 
 # MyTreno Card
 
-![version](https://img.shields.io/badge/version-2.0.1-blue)
-![hacs](https://img.shields.io/badge/HACS-default-orange)
+![version](https://img.shields.io/badge/version-2.3.0-blue)
+![hacs](https://img.shields.io/badge/HACS-custom-orange)
 
 > Card Lovelace per visualizzare partenze e arrivi dei treni usando ViaggiaTreno.
 ---
@@ -19,23 +20,25 @@ Grazie a tutti del supporto 🙏🏻❤️
   <img src="https://github.com/lotablet/mytreno-card/blob/main/image/sample_card.gif" alt="sample_card" />
 </p>
 
-## 📦 Installazione via HACS
+## 📦 Installazione via HACS (Custom repositories)
 
-1. Vai in HACS → Frontend → Menu (⋮) → "Custom repositories"
-2. Inserisci l'URL della repo e imposta tipo: `Lovelace`:
-
-```
-https://github.com/lotablet/mytreno-card/
-```
-
-
-3. Installa `MyTreno Card`
-4. Dopo il riavvio, aggiungi questa card in Lovelace:
+1. Se hai già installato la *MyTreno Card* originale (lotablet), rimuovila: **HACS → MyTreno Card → ⋮ → Rimuovi**
+2. Vai in **HACS → Menu ⋮ (in alto a destra) → Custom repositories** (*Archivi digitali personalizzati*)
+3. Compila i campi:
+   - **Repository:**
+     ```
+     https://github.com/HotBlaster/mytreno-card
+     ```
+   - **Tipo:** `Dashboard` (nelle versioni meno recenti di HACS: `Lovelace` / `Plugin`)
+4. Clicca **Aggiungi**, poi cerca **MyTreno Card** in HACS e clicca **Scarica**
+5. Ricarica la pagina del browser (svuota la cache se la card non compare)
+6. Aggiungi questa card nella dashboard:
 
 ```
 type: custom:my-treno-card
+sensor: sensor.mytreno_la_spezia_centrale
 extra_sensor: sensor.mytreno_selected_train #OBBLIGATORIO PER IL TRACKING
-theme: delfaut   # default - neon - light - retro
+theme: default   # default - neon - light - retro - trenitalia
 ```
 Puoi anche usare card mod per "aggiustare" le dimensioni della card
 
@@ -43,7 +46,7 @@ Puoi anche usare card mod per "aggiustare" le dimensioni della card
 type: custom:my-treno-card
 sensor: sensor.mytreno_la_spezia_centrale
 extra_sensor: sensor.mytreno_selected_train
-theme: delfaut
+theme: default
 card_mod:
   style: |
     ha-card {

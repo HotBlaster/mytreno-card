@@ -139,7 +139,6 @@ class MyTrenoCardEditor extends LitElement {
     const mytrenoEntities = Object.keys(this.hass.states)
       .filter(e => e.startsWith("sensor.mytreno"));
     return html`
-      <div style="background:#e63946;color:#fff;padding:4px 8px;font-size:0.75rem;border-radius:4px;margin-bottom:8px;">⚡ Custom My Treno Card 1.0.3</div>
       <div class="section-title">${window.myTrenoT('select_station', this._getLang())}</div>
       <ha-selector
         .hass=${this.hass}
